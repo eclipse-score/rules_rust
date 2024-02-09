@@ -1108,9 +1108,12 @@ def construct_arguments(
     _add_lto_flags(ctx, toolchain, rustc_flags, crate_info)
     _add_codegen_units_flags(toolchain, emit, rustc_flags)
 
-    # Use linker_type to determine whether to use direct or indirect linker invocation
-    # If linker_type is not explicitly set, infer from which linker is actually being used
     ld_is_direct_driver = False
+
+    # This lists the libs that are injected through the toolchain configuration.
+    # Since we might add dependent libraries after these libraries, we need to add
+    # these later, after all other user libraries, see below.
+    additional_libs_from_link_args = []
 
     # Link!
     if ("link" in emit and crate_info.type not in ["rlib", "lib"]) or add_flags_for_binary:
@@ -1136,6 +1139,8 @@ def construct_arguments(
 
             env.update(link_env)
             rustc_flags.add(ld, format = "--codegen=linker=%s")
+            rustc_flags.add_joined("--codegen", link_args, join_with = " ", format_joined = "link-args=%s")
+            additional_libs_from_link_args = [arg for arg in link_args if arg.startswith("-l")]
 
             # Split link args into individual "--codegen=link-arg=" flags to handle nested spaces.
             # Additional context: https://github.com/rust-lang/rust/pull/36574
@@ -1171,6 +1176,9 @@ def construct_arguments(
 
     if toolchain._experimental_link_std_dylib:
         rustc_flags.add("--codegen=prefer-dynamic")
+
+    # Now add all libraries taken from the toolchain configuration, see above.
+    rustc_flags.add_joined("--codegen", additional_libs_from_link_args, join_with = " ", format_joined = "link-args=%s")
 
     # Make bin crate data deps available to tests.
     for data in getattr(attr, "data", []):
@@ -2262,6 +2270,7 @@ def _portable_link_flags(lib, use_pic, ambiguous_libs, get_lib_name, for_windows
     elif _is_dylib(lib):
         return [
             "-ldylib=%s" % get_lib_name(artifact),
+            "-Clink-arg=-l{}".format(get_lib_name(artifact)),
         ]
 
     return []
