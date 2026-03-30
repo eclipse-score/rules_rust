@@ -131,6 +131,18 @@ is_proc_macro_dep_enabled = rule(
     build_setting = config.bool(flag = True),
 )
 
+def _miri_enabled(attr):
+    return hasattr(attr, "_miri_enabled") and attr._miri_enabled[BuildSettingInfo].value
+
+def _find_miri_toolchain(ctx, attr):
+    if is_exec_configuration(ctx) or not _miri_enabled(attr):
+        return None
+
+    toolchain = ctx.toolchains[str(Label("//rust:miri_toolchain_type"))]
+    if not toolchain:
+        fail("Rust target {} was configured for Miri, but no `@rules_rust//rust:miri_toolchain_type` is registered.".format(ctx.label))
+    return toolchain
+
 def _get_rustc_env(attr, toolchain, crate_name):
     """Gathers rustc environment variables
 
@@ -802,6 +814,12 @@ def collect_inputs(
     else:
         runtime_libs = cc_toolchain.static_runtime_lib(feature_configuration = feature_configuration)
 
+    miri_toolchain = _find_miri_toolchain(ctx, ctx.attr)
+
+    toolchain_inputs = [toolchain.all_files]
+    if miri_toolchain:
+        toolchain_inputs.append(miri_toolchain.all_files)
+
     nolinkstamp_compile_inputs = depset(
         nolinkstamp_compile_direct_inputs +
         ([] if experimental_use_cc_common_link else libs_from_linker_inputs),
@@ -810,8 +828,7 @@ def collect_inputs(
             transitive_crate_outputs,
             crate_info.compile_data,
             dep_info.transitive_proc_macro_data,
-            toolchain.all_files,
-        ] + ([] if experimental_use_cc_common_link else [
+        ] + toolchain_inputs + ([] if experimental_use_cc_common_link else [
             runtime_libs,
             linker_depset,
         ]),
@@ -1097,7 +1114,9 @@ def construct_arguments(
         rustc_flags.add(linker_script, format = "--codegen=link-arg=-T%s")
 
     # Tell Rustc where to find the standard library (or libcore)
-    rustc_flags.add_all(toolchain.rust_std_paths, before_each = "-L", format_each = "%s")
+    miri_toolchain = _find_miri_toolchain(ctx, attr)
+    if not miri_toolchain:
+        rustc_flags.add_all(toolchain.rust_std_paths, before_each = "-L", format_each = "%s")
     rustc_flags.add_all(rust_flags, map_each = map_flag)
 
     # Gather data path from crate_info since it is inherited from real crate for rust_doc and rust_test
@@ -1204,7 +1223,9 @@ def construct_arguments(
         ))
 
     # Ensure the sysroot is set for the target platform
-    if toolchain._toolchain_generated_sysroot:
+    if miri_toolchain:
+        rustc_flags.add(miri_toolchain.sysroot, format = "--sysroot=%s")
+    elif toolchain._toolchain_generated_sysroot:
         rustc_flags.add(toolchain.sysroot, format = "--sysroot=%s")
 
     if toolchain._rename_first_party_crates:
@@ -1283,6 +1304,9 @@ def collect_extra_rustc_flags(ctx, toolchain, crate_root, crate_type):
 
     if hasattr(ctx.attr, "_extra_exec_rustc_flag") and is_exec:
         flags.extend(ctx.attr._extra_exec_rustc_flag[ExtraExecRustcFlagsInfo].extra_exec_rustc_flags)
+
+    if not is_exec and _miri_enabled(ctx.attr):
+        flags.append("-Zalways-encode-mir")
 
     return flags
 
