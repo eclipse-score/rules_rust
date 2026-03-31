@@ -135,6 +135,9 @@ def _miri_enabled(attr):
     return hasattr(attr, "_miri_enabled") and attr._miri_enabled[BuildSettingInfo].value
 
 def _find_miri_toolchain(ctx, attr):
+    # Host-side tools such as build scripts and proc-macros must keep using the
+    # normal toolchain; only target-side crates are rebuilt against the Miri
+    # sysroot.
     if is_exec_configuration(ctx) or not _miri_enabled(attr):
         return None
 
@@ -816,6 +819,9 @@ def collect_inputs(
 
     miri_toolchain = _find_miri_toolchain(ctx, ctx.attr)
 
+    # When a crate is rebuilt for Miri, Bazel must also stage the Miri sysroot
+    # and runtime files into the sandbox or the action will analyze correctly
+    # but fail once it executes.
     toolchain_inputs = [toolchain.all_files]
     if miri_toolchain:
         toolchain_inputs.append(miri_toolchain.all_files)
@@ -1113,7 +1119,9 @@ def construct_arguments(
     if linker_script:
         rustc_flags.add(linker_script, format = "--codegen=link-arg=-T%s")
 
-    # Tell Rustc where to find the standard library (or libcore)
+    # Normal Rust builds search the standard library via -L paths. In Miri
+    # mode that would be wrong, because target-side crates must be rebuilt
+    # against the dedicated Miri sysroot instead.
     miri_toolchain = _find_miri_toolchain(ctx, attr)
     if not miri_toolchain:
         rustc_flags.add_all(toolchain.rust_std_paths, before_each = "-L", format_each = "%s")
@@ -1222,7 +1230,8 @@ def construct_arguments(
             {},
         ))
 
-    # Ensure the sysroot is set for the target platform
+    # Point target-side crates at the Miri sysroot so their metadata and std
+    # linkage match what the direct miri driver will interpret later on.
     if miri_toolchain:
         rustc_flags.add(miri_toolchain.sysroot, format = "--sysroot=%s")
     elif toolchain._toolchain_generated_sysroot:
@@ -1306,6 +1315,8 @@ def collect_extra_rustc_flags(ctx, toolchain, crate_root, crate_type):
         flags.extend(ctx.attr._extra_exec_rustc_flag[ExtraExecRustcFlagsInfo].extra_exec_rustc_flags)
 
     if not is_exec and _miri_enabled(ctx.attr):
+        # Miri may need MIR bodies from transitive dependencies at runtime, so
+        # target-side crates must always encode MIR in this mode.
         flags.append("-Zalways-encode-mir")
 
     return flags

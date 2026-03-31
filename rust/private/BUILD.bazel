@@ -51,6 +51,9 @@ is_proc_macro_dep_enabled(
     visibility = ["//visibility:public"],
 )
 
+# This build setting is flipped by the Miri transition so the normal Rust
+# compilation pipeline can rebuild target-side crates against the Miri sysroot
+# without affecting unrelated Rust builds.
 bool_flag(
     name = "miri_enabled",
     build_setting_default = False,

@@ -56,6 +56,9 @@ load(
 
 # TODO(marco): Separate each rule into its own file.
 
+# All Rust rules can optionally see the Miri toolchain so a wrapper rule can
+# transition an existing crate graph into Miri mode without duplicating rule
+# implementations just for that case.
 _RUST_TOOLCHAINS = [
     str(Label("//rust:toolchain_type")),
     config_common.toolchain_type("//rust:miri_toolchain_type", mandatory = False),
@@ -648,6 +651,11 @@ RUSTC_ATTRS = {
     "_is_proc_macro_dep_enabled": attr.label(
         default = Label("//rust/private:is_proc_macro_dep_enabled"),
     ),
+    # Thread the Miri build setting into the common Rust attrs so the compile
+    # layer can detect when a target-side crate is being rebuilt for Miri.
+    "_miri_enabled": attr.label(
+        default = Label("//rust/private:miri_enabled"),
+    ),
     "_per_crate_rustc_flag": attr.label(
         default = Label("//rust/settings:experimental_per_crate_rustc_flag"),
     ),
@@ -660,9 +668,6 @@ RUSTC_ATTRS = {
     ),
     "_rustc_output_diagnostics": attr.label(
         default = Label("//rust/settings:rustc_output_diagnostics"),
-    ),
-    "_miri_enabled": attr.label(
-        default = Label("//rust/private:miri_enabled"),
     ),
 }
 
