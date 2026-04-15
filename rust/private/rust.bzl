@@ -56,6 +56,15 @@ load(
 
 # TODO(marco): Separate each rule into its own file.
 
+# All Rust rules can optionally see the Miri toolchain so a wrapper rule can
+# transition an existing crate graph into Miri mode without duplicating rule
+# implementations just for that case.
+_RUST_TOOLCHAINS = [
+    str(Label("//rust:toolchain_type")),
+    config_common.toolchain_type("//rust:miri_toolchain_type", mandatory = False),
+    config_common.toolchain_type("@bazel_tools//tools/cpp:toolchain_type", mandatory = False),
+]
+
 def _assert_no_deprecated_attributes(_ctx):
     """Forces a failure if any deprecated attributes were specified
 
@@ -642,6 +651,11 @@ RUSTC_ATTRS = {
     "_is_proc_macro_dep_enabled": attr.label(
         default = Label("//rust/private:is_proc_macro_dep_enabled"),
     ),
+    # Thread the Miri build setting into the common Rust attrs so the compile
+    # layer can detect when a target-side crate is being rebuilt for Miri.
+    "_miri_enabled": attr.label(
+        default = Label("//rust/private:miri_enabled"),
+    ),
     "_per_crate_rustc_flag": attr.label(
         default = Label("//rust/settings:experimental_per_crate_rustc_flag"),
     ),
@@ -930,10 +944,7 @@ rust_library = rule(
         ),
     },
     fragments = ["cpp"],
-    toolchains = [
-        str(Label("//rust:toolchain_type")),
-        config_common.toolchain_type("@bazel_tools//tools/cpp:toolchain_type", mandatory = False),
-    ],
+    toolchains = _RUST_TOOLCHAINS,
     doc = dedent("""\
         Builds a Rust library crate.
 
@@ -1028,10 +1039,7 @@ rust_static_library = rule(
     },
     fragments = ["cpp"],
     cfg = _rust_static_library_transition,
-    toolchains = [
-        str(Label("//rust:toolchain_type")),
-        config_common.toolchain_type("@bazel_tools//tools/cpp:toolchain_type", mandatory = False),
-    ],
+    toolchains = _RUST_TOOLCHAINS,
     provides = [
         CcInfo,
         rust_common.test_crate_info,
@@ -1077,10 +1085,7 @@ rust_shared_library = rule(
     },
     fragments = ["cpp"],
     cfg = _rust_shared_library_transition,
-    toolchains = [
-        str(Label("//rust:toolchain_type")),
-        config_common.toolchain_type("@bazel_tools//tools/cpp:toolchain_type", mandatory = False),
-    ],
+    toolchains = _RUST_TOOLCHAINS,
     provides = [
         CcInfo,
         rust_common.test_crate_info,
@@ -1133,10 +1138,7 @@ rust_proc_macro = rule(
         ),
     ),
     fragments = ["cpp"],
-    toolchains = [
-        str(Label("//rust:toolchain_type")),
-        config_common.toolchain_type("@bazel_tools//tools/cpp:toolchain_type", mandatory = False),
-    ],
+    toolchains = _RUST_TOOLCHAINS,
     doc = dedent("""\
         Builds a Rust proc-macro crate.
     """),
@@ -1217,10 +1219,7 @@ rust_binary = rule(
     executable = True,
     fragments = ["cpp"],
     cfg = _rust_binary_transition,
-    toolchains = [
-        str(Label("//rust:toolchain_type")),
-        config_common.toolchain_type("@bazel_tools//tools/cpp:toolchain_type", mandatory = False),
-    ],
+    toolchains = _RUST_TOOLCHAINS,
     doc = dedent("""\
         Builds a Rust binary crate.
 
@@ -1360,10 +1359,7 @@ rust_binary_without_process_wrapper = rule(
     attrs = _common_attrs_for_binary_without_process_wrapper(_common_attrs | _rust_binary_attrs),
     executable = True,
     fragments = ["cpp"],
-    toolchains = [
-        str(Label("//rust:toolchain_type")),
-        config_common.toolchain_type("@bazel_tools//tools/cpp:toolchain_type", mandatory = False),
-    ],
+    toolchains = _RUST_TOOLCHAINS,
 )
 
 def _rust_library_without_process_wrapper_impl(ctx):
@@ -1376,10 +1372,7 @@ rust_library_without_process_wrapper = rule(
     provides = COMMON_PROVIDERS + [_RustBuiltWithoutProcessWrapperInfo],
     attrs = dict(_common_attrs_for_binary_without_process_wrapper(_common_attrs).items()),
     fragments = ["cpp"],
-    toolchains = [
-        str(Label("//rust:toolchain_type")),
-        config_common.toolchain_type("@bazel_tools//tools/cpp:toolchain_type", mandatory = False),
-    ],
+    toolchains = _RUST_TOOLCHAINS,
 )
 
 def _test_attrs_for_binary_without_process_wrapper(attrs):
@@ -1416,10 +1409,7 @@ rust_test_without_process_wrapper_test = rule(
     executable = True,
     fragments = ["cpp"],
     test = True,
-    toolchains = [
-        str(Label("//rust:toolchain_type")),
-        config_common.toolchain_type("@bazel_tools//tools/cpp:toolchain_type", mandatory = False),
-    ],
+    toolchains = _RUST_TOOLCHAINS,
 )
 
 def _rust_test_transition_impl(settings, attr):
@@ -1453,10 +1443,7 @@ rust_test = rule(
     fragments = ["cpp"],
     cfg = _rust_test_transition,
     test = True,
-    toolchains = [
-        str(Label("//rust:toolchain_type")),
-        config_common.toolchain_type("@bazel_tools//tools/cpp:toolchain_type", mandatory = False),
-    ],
+    toolchains = _RUST_TOOLCHAINS,
     doc = dedent("""\
         Builds a Rust test crate.
 
