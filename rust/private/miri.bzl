@@ -165,10 +165,13 @@ def _script_content(ctx, *, crate, dep_info, miri_toolchain, is_test, miri_flags
             "done",
         ])
 
+    crate_features = ['feature="{}"'.format(feature) for feature in getattr(ctx.attr, "crate_features", [])]
+    cfgs = crate.cfgs + crate_features
+
     lines.append("")
     lines.extend(_emit_shell_array("extern_specs", extern_specs))
     lines.extend(_emit_shell_array("dependency_outputs", dependency_outputs))
-    lines.extend(_emit_shell_array("cfg_values", crate.cfgs))
+    lines.extend(_emit_shell_array("cfg_values", cfgs))
     lines.extend(_emit_shell_array("miri_flags", miri_flags))
     lines.extend(_emit_shell_array("launcher_args", ctx.attr.miri_args))
     lines.extend([
@@ -309,6 +312,15 @@ _MIRI_COMMON_ATTRS = {
 
             For `miri_test`, prefer wrapping an existing `rust_test` target so the
             wrapped target already carries any test-only dependencies.
+        """),
+    ),
+    "crate_features": attr.string_list(
+        doc = dedent("""\
+            List of features to enable for this crate.
+
+            Features are defined in the code using the `#[cfg(feature = "foo")]`
+            configuration option. The features listed here will be passed to `rustc`
+            with `--cfg feature="${feature_name}"` flags.
         """),
     ),
     "env": attr.string_dict(
