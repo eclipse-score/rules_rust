@@ -40,12 +40,26 @@ pub(crate) fn resolve_cfg_platforms(
     let target_infos = supported_platform_triples
         .iter()
         .map(
-            |target_triple| match get_builtin_target_by_triple(&target_triple.to_cargo()) {
-                Some(info) => Ok((target_triple, info)),
-                None => Err(anyhow!(
-                    "Invalid platform triple in supported platforms: {}",
-                    target_triple
-                )),
+            |target_triple| {
+                let triple_str = target_triple.to_cargo();
+                // Surgically intercept and map custom QNX8 triples to standard built-in QNX7 templates!
+                let lookup_str = if triple_str.contains("nto-qnx800") {
+                    if triple_str.starts_with("aarch64") {
+                        "aarch64-unknown-nto-qnx710"
+                    } else {
+                        "x86_64-pc-nto-qnx710"
+                    }
+                } else {
+                    &triple_str
+                };
+
+                match get_builtin_target_by_triple(lookup_str) {
+                    Some(info) => Ok((target_triple, info)),
+                    None => Err(anyhow!(
+                        "Invalid platform triple in supported platforms: {}",
+                        target_triple
+                    )),
+                }
             },
         )
         .collect::<Result<BTreeMap<&TargetTriple, &'static TargetInfo>>>()?;
