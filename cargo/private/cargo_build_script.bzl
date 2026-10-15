@@ -232,8 +232,29 @@ def _pwd_flags_fsanitize_ignorelist(args):
             res.append(arg)
     return res
 
+def _pwd_flags_imacros(args):
+    """Prefix execroot-relative paths of known arguments with ${pwd}.
+
+    Args:
+        args (list): List of tool arguments.
+
+    Returns:
+        list: The modified argument list.
+    """
+    res = []
+    fix_next_arg = False
+    for arg in args:
+        if fix_next_arg and not paths.is_absolute(arg):
+            res.append("${{pwd}}/{}".format(arg))
+        else:
+            res.append(arg)
+
+        fix_next_arg = arg == "-imacros"
+
+    return res
+
 def _pwd_flags(args):
-    return _pwd_flags_fsanitize_ignorelist(_pwd_flags_isystem(_pwd_flags_bindir(_pwd_flags_sysroot(args))))
+    return _pwd_flags_imacros(_pwd_flags_fsanitize_ignorelist(_pwd_flags_isystem(_pwd_flags_bindir(_pwd_flags_sysroot(args)))))
 
 def _feature_enabled(ctx, feature_name, default = False):
     """Check if a feature is enabled.

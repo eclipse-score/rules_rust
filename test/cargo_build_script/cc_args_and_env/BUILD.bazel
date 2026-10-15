@@ -4,6 +4,8 @@ load(
     "bindir_relative_test",
     "fsanitize_ignorelist_absolute_test",
     "fsanitize_ignorelist_relative_test",
+    "imacros_absolute_test",
+    "imacros_relative_test",
     "isystem_absolute_test",
     "isystem_relative_test",
     "legacy_cc_toolchain_test",
@@ -21,6 +23,10 @@ sysroot_next_absolute_test(name = "sysroot_next_absolute_test")
 isystem_relative_test(name = "isystem_relative_test")
 
 isystem_absolute_test(name = "isystem_absolute_test")
+
+imacros_relative_test(name = "imacros_relative_test")
+
+imacros_absolute_test(name = "imacros_absolute_test")
 
 bindir_relative_test(name = "bindir_relative_test")
 
