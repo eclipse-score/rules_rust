@@ -25,7 +25,7 @@ jobs:
   validation:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Ensure release does not already exist
         if: startsWith(github.ref, 'refs/heads/main')
         run: |
@@ -76,7 +76,7 @@ jobs:
             env:
               TARGET: "x86_64-unknown-linux-musl"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install rust toolchains for host
         run: |
           # Detect the current version of rust
@@ -130,7 +130,7 @@ jobs:
       release_version: ${{ steps.version.outputs.release_version }}
       archive_sha256_base64: ${{ steps.archive.outputs.archive_sha256_base64 }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/download-artifact@v4
         with:
           path: ${{ github.workspace }}/crate_universe/target/artifacts
@@ -189,7 +189,7 @@ jobs:
     needs: [archive]
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/download-artifact@v4
         with:
           path: ${{ github.workspace }}/artifacts
