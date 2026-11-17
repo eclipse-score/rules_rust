@@ -18,7 +18,7 @@ jobs:
       matrix:
         include:
           - os: linux_x86_64
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-24.04
           - os: linux_aarch64
             runs-on: ubuntu-24.04-arm
           - os: macos_aarch64
